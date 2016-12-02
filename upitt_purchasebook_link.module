@@ -34,11 +34,11 @@ function upitt_purchasebook_link_islandora_overview_object_alter(AbstractObject 
   $isBook |= (!(array_search('islandora:manuscriptCModel', $object->models) === FALSE));
 
   if ($isBook) {
-    add_change_model_output($object, $output);
+    add_change_output($object, $output);
   }
 }
 
-function add_change_model_output(AbstractObject &$object, &$output) {
+function add_change_output(AbstractObject &$object, &$output) {
   $object_purchase_link = _purchase_link_of_object($object);
 	
   $change_model_link_text = ($object_purchase_link) ? t("Change value from ") . '"' . $object_purchase_link . '"' :

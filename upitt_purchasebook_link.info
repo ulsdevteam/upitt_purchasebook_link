@@ -1,0 +1,7 @@
+name = University of Pittsburgh Purchase Book Link
+package = Islandora Tools
+description = To manage and display a link to the University of Pittsburgh Press book for sale.
+version = 7.x
+core = 7.x
+dependencies[] = islandora
+dependencies[] = upitt_discovery_system_links_block

@@ -1,0 +1,125 @@
+<?php
+
+
+/**
+ * Implements hook_menu().
+ */
+function upitt_purchasebook_link_menu() {
+  return array(
+    'islandora/object/%islandora_object/manage/purchaselink' => array(
+      'title' => 'Change the object\'s model',
+      'page callback' => 'drupal_get_form',
+      'page arguments' => array('upitt_purchasebook_link_change', 2),
+      'type' => MENU_CALLBACK,
+      'access arguments' => array(ISLANDORA_MANAGE_PROPERTIES),
+    ),
+  );
+}
+
+/**
+ * Implements hook_islandora_overview_object_alter().
+ *
+ * Shows the collection usage stats on the object overview tab if allowed.
+ */
+function upitt_purchasebook_link_islandora_overview_object_alter(AbstractObject &$object, &$output) {
+  if (!user_access(ISLANDORA_MANAGE_PROPERTIES)) {
+    return;
+  }
+
+  // Only display this for Book or Manuscript model objects.
+  $isBook = FALSE;
+  // allow bookCModel
+  $isBook |= (!(array_search('islandora:bookCModel', $object->models) === FALSE));
+  // allow manuscriptCModel
+  $isBook |= (!(array_search('islandora:manuscriptCModel', $object->models) === FALSE));
+
+  if ($isBook) {
+    add_change_model_output($object, $output);
+  }
+}
+
+function add_change_model_output(AbstractObject &$object, &$output) {
+  $object_purchase_link = _purchase_link_of_object($object);
+	
+  $change_model_link_text = ($object_purchase_link) ? t("Change value from ") . '"' . $object_purchase_link . '"' :
+    t("Create link");
+  $change_model_link = l($change_model_link_text, "/islandora/object/{$object->id}/manage/purchaselink");
+  $output['upitt_purchasebook_link'] = array(
+    '#type' => 'item',
+    '#title' => 'Purchase Link',
+    '#markup' => $change_model_link . (($object_purchase_link) ? '<br>Test link: <a href="' . $object_purchase_link . '" target="_blank">Purchase this book</a> (opens in new tab).' : '')  
+  );
+}
+
+function upitt_purchasebook_link_change($form, &$form_state, AbstractObject $object) {
+  // display the current object's purchase link.
+  $object_purchase_link = _purchase_link_of_object($object);
+
+  $form['purchase_link'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Purchase Link'),
+      '#description' => t('Update the "Purchase this book" link for the given object.'),
+      '#default_value' => $object_purchase_link,
+    );
+
+  $form['object_id'] = array(
+      '#type' => 'hidden',
+      '#value' => $object->id,
+    );
+
+  $form['submit'] = array(
+      '#type' => 'submit',
+      '#value' => t('Save'),
+    );
+
+  return $form;
+}
+
+function upitt_purchasebook_link_change_submit($form, &$form_state) {
+  $pid = $form_state['values']['object_id'];
+  $object = islandora_object_load($pid);
+  if (is_object($object)) {
+    $current_object_purchase_link = _purchase_link_of_object($object);
+    if ($current_object_purchase_link <> $form_state['values']['purchase_link']) {
+      $object->relationships->remove(ISLANDORA_RELS_EXT_URI, 'purchaseAtUri', NULL);
+      $object->relationships->add(ISLANDORA_RELS_EXT_URI, 'purchaseAtUri', $form_state['values']['purchase_link']);
+    }
+  }
+  $form_state['redirect'] = "/islandora/object/{$form_state['values']['object_id']}/manage";
+}
+
+/**
+ * Helper function to derive the purchase link value of any object.
+ */
+function _purchase_link_of_object($object) {
+  $rels = $object->relationships->get(ISLANDORA_RELS_EXT_URI, 'purchaseAtUri');
+  $object_purchase_link = '';
+  foreach ($rels as $rel) {
+    if ($rel <> 'fedora-system:FedoraObject-3.0' && !$object_purchase_link) {
+      $object_purchase_link_rel = $rel;
+    }
+  }
+  if (is_array($object_purchase_link_rel) && array_key_exists('object', $object_purchase_link_rel) && array_key_exists('value', $object_purchase_link_rel['object'])) {
+    $object_purchase_link = $object_purchase_link_rel['object']['value'];
+  }
+  return $object_purchase_link;
+}
+
+function upitt_purchasebook_link_discovery_links_alter(&$data) {
+  $item = menu_get_item();
+  if (isset($item['page_arguments'][0]) && is_object($item['page_arguments'][0]) && (get_class($item['page_arguments'][0]) == 'IslandoraFedoraObject')) {
+    $islandora_object = $item['page_arguments'][0];
+    $purchase_link = _purchase_link_of_object($islandora_object);
+
+    if ($purchase_link) {
+      $options = array('attributes' => array('target'=>'_blank'));
+      $path = drupal_get_path('module', 'upitt_purchasebook_link');
+
+      $prefix_link_text = (strstr($purchase_link, 'permissionrequests')) ? 'This book is out of print. For information on requesting permission to reproduce material from this volume: ' : '';
+      $link_text = (strstr($purchase_link, 'permissionrequests')) ? 'Link' : 'Purchase here';
+
+      $img = '<a href="' . $purchase_link . '"><img src="/' . $path . '/images/uls.png"></a>';
+      $data[] = $img . ' ' . $prefix_link_text . l($link_text, $purchase_link, $options);
+    }
+  }
+}

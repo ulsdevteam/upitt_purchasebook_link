@@ -94,6 +94,7 @@ function upitt_purchasebook_link_change_submit($form, &$form_state) {
 function _purchase_link_of_object($object) {
   $rels = $object->relationships->get(ISLANDORA_RELS_EXT_URI, 'purchaseAtUri');
   $object_purchase_link = '';
+  $object_purchase_link_rel = NULL;
   foreach ($rels as $rel) {
     if ($rel <> 'fedora-system:FedoraObject-3.0' && !$object_purchase_link) {
       $object_purchase_link_rel = $rel;
